@@ -1,0 +1,14 @@
+{
+  "name": "folio/document-chat",
+  "description": "Private document-grounded chat API",
+  "type": "project",
+  "require": {
+    "php": ">=8.2",
+    "ext-curl": "*",
+    "ext-pdo": "*",
+    "ext-pdo_mysql": "*",
+    "ext-mbstring": "*",
+    "ext-fileinfo": "*",
+    "ext-zip": "*"
+  }
+}

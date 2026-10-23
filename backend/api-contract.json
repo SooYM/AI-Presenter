@@ -1,0 +1,449 @@
+{
+  "version": "2.5.0",
+  "base": "/api/index.php?action=",
+  "access": "Public kiosk, no login. Shared documents; anonymous session-isolated conversations.",
+  "csrf": "Every POST requires X-CSRF-Token from GET session. New-session rotates token. Cross-origin writes rejected.",
+  "errors": {
+    "error": {
+      "code": "stable_machine_code",
+      "message": "safe_user_message"
+    },
+    "requestId": "correlation_id"
+  },
+  "routes": [
+    {
+      "action": "session",
+      "method": "GET",
+      "response": {
+        "authenticated": true,
+        "csrfToken": "string",
+        "configured": "boolean",
+        "aiConfigured": "boolean"
+      }
+    },
+    {
+      "action": "health",
+      "method": "GET",
+      "response": {
+        "ok": true,
+        "aiConfigured": "boolean"
+      }
+    },
+    {
+      "action": "new-session",
+      "method": "POST",
+      "response": "session; deletes current visitor history and rotates conversation and CSRF"
+    },
+    {
+      "action": "documents",
+      "method": "GET",
+      "response": {
+        "documents": "Document[]"
+      }
+    },
+    {
+      "action": "upload",
+      "method": "POST",
+      "contentType": "multipart/form-data",
+      "request": {
+        "file": "PDF/DOCX/TXT/MD, 1 to31457280bytes"
+      },
+      "response": {
+        "document": "Document"
+      },
+      "status": 201
+    },
+    {
+      "action": "delete-document",
+      "method": "POST",
+      "request": {
+        "id": "positive integer"
+      },
+      "response": {
+        "ok": true
+      }
+    },
+    {
+      "action": "messages",
+      "method": "GET",
+      "response": {
+        "messages": "Current conversation Message[]; latest200 ordered oldest first"
+      }
+    },
+    {
+      "action": "chat",
+      "method": "POST",
+      "request": {
+        "message": "1 to4000characters",
+        "documentIds": "positive integer[]; empty means all ready documents in ordinary chat, deck only when presentationId supplied",
+        "presentationId": "optional positive integer, requires page",
+        "page": "optional 1-based integer",
+        "language": "auto|en|zh default auto"
+      },
+      "response": {
+        "message": "Message"
+      }
+    },
+    {
+      "action": "clear-chat",
+      "method": "POST",
+      "response": {
+        "ok": true
+      },
+      "effect": "Deletes only current visitor history"
+    },
+    {
+      "action": "transcribe",
+      "method": "POST",
+      "contentType": "multipart/form-data",
+      "request": {
+        "audio": "MIME-validated WebM/MP4/MP3/WAV, maximum10485760bytes"
+      },
+      "response": {
+        "text": "string"
+      }
+    },
+    {
+      "action": "speech",
+      "method": "POST",
+      "request": {
+        "messageId": "current visitor assistant message ID",
+        "voice": "coral|alloy|sage; default coral",
+        "segmentIndex": "optional 0-based integer; omitted reads whole saved message"
+      },
+      "response": "audio/mpeg binary"
+    },
+    {
+      "response": {
+        "presentations": "Presentation[]"
+      },
+      "method": "GET",
+      "action": "presentations"
+    },
+    {
+      "action": "upload-presentation",
+      "contentType": "multipart/form-data",
+      "status": 201,
+      "response": {
+        "presentation": "Presentation"
+      },
+      "method": "POST",
+      "request": {
+        "file": "PDF/PPTX, maximum31457280bytes,40slides,10decks"
+      }
+    },
+    {
+      "request": {
+        "id": "positive integer"
+      },
+      "response": {
+        "presentation": "Presentation",
+        "done": "boolean"
+      },
+      "effect": "Initial PDF conversion plus one page per request; repeat sequentially until done. Failed pages are retryable.",
+      "method": "POST",
+      "action": "prepare-presentation"
+    },
+    {
+      "request": {
+        "id": "positive integer query"
+      },
+      "response": {
+        "presentation": "Presentation",
+        "slides": "Slide[]",
+        "questionPolicy": "QuestionPolicy"
+      },
+      "method": "GET",
+      "action": "presentation"
+    },
+    {
+      "request": {
+        "page": "1-based integer query",
+        "id": "positive integer query"
+      },
+      "response": "private image/png binary",
+      "method": "GET",
+      "action": "slide-image"
+    },
+    {
+      "request": {
+        "page": "1-based integer",
+        "documentIds": "legacy optional positive integer[]; ignored for saved scripts, applies only to Q&A",
+        "language": "en|zh",
+        "id": "positive integer"
+      },
+      "response": {
+        "cached": "boolean",
+        "message": "Message"
+      },
+      "method": "POST",
+      "action": "slide-narration",
+      "effect": "CACHE ONLY: requires complete script for selected language/support scope; otherwise409 script_preparation_required. Creates fresh current-visitor message from saved narration. Never calls LLM."
+    },
+    {
+      "request": {
+        "page": "1-based integer",
+        "language": "en|zh",
+        "state": "paused|presenting|questions|completed",
+        "id": "positive integer, POST only"
+      },
+      "response": {
+        "progress": "null or {presentationId,page,language,state}; current visitor only"
+      },
+      "method": "GET|POST",
+      "action": "presentation-progress"
+    },
+    {
+      "request": {
+        "id": "positive integer"
+      },
+      "response": {
+        "ok": true
+      },
+      "effect": "Removes deck source, rendered pages, text, narration cache and visitor progress.",
+      "method": "POST",
+      "action": "delete-presentation"
+    },
+    {
+      "response": {
+        "script": "ScriptStatus"
+      },
+      "effect": "Reads persistent narration cache. No provider calls or conversation message creation.",
+      "request": {
+        "id": "positive integer",
+        "documentIds": "legacy optional positive integer[]; ignored for saved scripts, applies only to Q&A",
+        "language": "en|zh"
+      },
+      "method": "POST",
+      "action": "script-status"
+    },
+    {
+      "response": {
+        "script": "ScriptStatus",
+        "cached": "boolean",
+        "preparedPage": "1-based integer|null"
+      },
+      "effect": "Generates at most one genuinely missing deck/slide/language script from slide evidence. Saved scripts survive support selection/model changes and all future presentations. Retry resumes saved pages; no visitor messages. Cache hits consume no generation quota.",
+      "request": {
+        "id": "positive integer",
+        "documentIds": "legacy optional positive integer[]; ignored for saved scripts, applies only to Q&A",
+        "language": "en|zh"
+      },
+      "method": "POST",
+      "action": "prepare-script"
+    },
+    {
+      "response": {
+        "pages": "ScriptPage[]",
+        "script": "ScriptStatus"
+      },
+      "method": "GET",
+      "action": "script",
+      "request": {
+        "language": "en|zh query",
+        "id": "positive integer query"
+      },
+      "effect": "Reads saved per-deck/slide/language scripts. Lazily adopts newest legacy cache, without provider calls."
+    },
+    {
+      "response": {
+        "script": "ScriptStatus",
+        "page": "ScriptPage"
+      },
+      "method": "POST",
+      "action": "save-script",
+      "request": {
+        "content": "nonempty UTF-8, at most12000characters, stored verbatim",
+        "page": "1-based integer",
+        "language": "en|zh",
+        "id": "positive integer",
+        "revision": "opaque64hex revision from GETscript"
+      },
+      "effect": "Optimistic concurrency409 script_conflict. Stores manual narration without LLM; clears generated citations; cannot be overwritten by automatic preparation."
+    },
+    {
+      "request": {
+        "id": "positive integer query"
+      },
+      "method": "GET",
+      "action": "question-policy",
+      "response": {
+        "policy": "QuestionPolicy"
+      }
+    },
+    {
+      "request": {
+        "id": "positive integer",
+        "revision": "current policy opaque64hex string",
+        "pages": "1-based integer[]; emptyNone, allpagesAll, anysubsetcustom"
+      },
+      "method": "POST",
+      "action": "save-question-policy",
+      "response": {
+        "policy": "QuestionPolicy"
+      },
+      "effect": "Shared persistent settings per deck; defaultlastslideonly. Stale revision409 question_policy_conflict, invalidpages400."
+    },
+    {
+      "request": {
+        "page": "1-based integer",
+        "id": "positive integer"
+      },
+      "method": "POST",
+      "action": "prepare-animation",
+      "response": "{animation:{page,...animation metadata,...embeddedVideo.slides},cached:boolean}; one native media page per request, video max600sec, bounded650sec request; retry recoverable",
+      "effect": "One actual native PowerPoint per-slide MP4. Existing readyclip reused; PDF/staticpage returnsnone without conversion. Failed clips retain honest failure metadata and staticimage."
+    },
+    {
+      "request": {
+        "id": "positive integer query",
+        "Range": "optional single bytes=start-end or suffix range",
+        "page": "1-based integer query"
+      },
+      "method": "GET|HEAD",
+      "action": "slide-animation",
+      "response": "private video/mp4,200 full or206 byte range;416 invalidrange",
+      "effect": "Session/privateasset lookup, no arbitrarypaths. Bounded64KB streaming, Accept-Ranges bytes."
+    },
+    {
+      "action": "slide-video",
+      "method": "GET|HEAD",
+      "query": {
+        "id": "positive integer",
+        "page": "positive integer"
+      },
+      "response": "Private H.264 MP4, video/mp4; same anonymous session guards; single Range bytes supports206/416; streamed64KiB chunks; no arbitrary path; source page must be ready."
+    }
+  ],
+  "schemas": {
+    "Document": {
+      "id": "integer",
+      "name": "string",
+      "size": "integer bytes",
+      "status": "processing|ready|failed|deleting",
+      "error": "string|null",
+      "createdAt": "ISO8601 UTC"
+    },
+    "Message": {
+      "id": "integer",
+      "role": "user|assistant",
+      "content": "plain text",
+      "citations": "Citation[]",
+      "createdAt": "ISO8601 UTC",
+      "kind": "chat|slide-narration",
+      "speechSegments": "string[] exact server-derived text parts, 0-based"
+    },
+    "Citation": {
+      "documentId": "integer",
+      "name": "string",
+      "quote": "verified excerpt, maximum900characters",
+      "presentationId": "optional integer for slide evidence; documentId=0",
+      "page": "optional 1-based slide number"
+    },
+    "Presentation": {
+      "error": "string|null",
+      "pageCount": "integer",
+      "preparedPages": "integer",
+      "id": "integer",
+      "status": "processing|ready|failed",
+      "name": "string",
+      "createdAt": "ISO8601UTC",
+      "size": "bytes"
+    },
+    "Slide": {
+      "page": "1-based integer",
+      "imageUrl": "same-origin private PNG endpoint",
+      "textPreview": "short source preview",
+      "title": "string",
+      "animationStatus": "none|pending|ready|failed",
+      "animationUrl": "same-origin private MP4 endpoint|null",
+      "animationDuration": "seconds|null",
+      "animationError": "safe error|null"
+    },
+    "ScriptStatus": {
+      "presentationId": "integer",
+      "pages": "1-based cached page numbers[]",
+      "language": "en|zh",
+      "scope": "fixed canonical script namespace; independent of model/support selection",
+      "done": "boolean",
+      "pageCount": "integer",
+      "preparedPages": "integer"
+    },
+    "ScriptPage": {
+      "revision": "opaque64hex string",
+      "source": "generated|manual",
+      "page": "1-based integer",
+      "content": "saved script text",
+      "updatedAt": "ISO8601UTC",
+      "citations": "Citation[]; manual edits always[]"
+    },
+    "QuestionPolicy": {
+      "revision": "opaque64hex string",
+      "pages": "sortedunique1-based integer[]",
+      "presentationId": "integer"
+    }
+  },
+  "limits": {
+    "documents": 30,
+    "uploadBytes": 10485760,
+    "uploadsPerHourPerIP": 20,
+    "questionsPer10MinutesPerIP": 20,
+    "transcriptionsPer10MinutesPerIP": 20,
+    "speechPer10MinutesPerIP": 30,
+    "globalRateMultiplier": 3,
+    "browserRecordingSeconds": 60,
+    "serverAudioDurationLimit": "Not enforced; MIME, byte and rate limits enforced independently",
+    "speechSegmentsPer10MinutesPerIP": 90,
+    "scriptGenerationsPer10MinutesPerIP": 100,
+    "cachedNarrationReadsPer10MinutesPerIP": 80,
+    "scriptEditsPer10MinutesPerIP": 60,
+    "animationRendersPer10MinutesPerIP": 100
+  },
+  "timeouts": {
+    "providerConnectSeconds": 10,
+    "providerRequestSeconds": 60,
+    "providerUploadSeconds": 90,
+    "sessionIdleSeconds": 900
+  },
+  "retries": "No automatic upstream mutation retries. Retry explicit failed deletions; unknown create outcomes need provider dashboard reconciliation.",
+  "history": "Deleting shared documents removes them from retrieval. Prior excerpts remain isolated in visitor conversations until clear-chat, new-session or session expiry.",
+  "grounding": "Presenter drafts at most6 natural sentences, each at most500characters and total2600characters, using only selected uploaded evidence. Every sentence carries1to3 exact source quotations, each at most900characters. Invalid evidence discards its entire sentence. Whitespace-only matching preserves the original source span; wrong in-range chunk references may be repaired only against another allowed retrieved source. Unknown source references remain invalid. A second independent model call must approve every factual claim and faithful translation before its sentence is returned. Missing, duplicate or malformed verifier verdicts fail closed. No approved evidence means localized refusal. Citations contain original evidence; main content contains natural speech with terminal citation anchors. Each verified sentence is separated by a blank line for speech playback highlighting. English and Chinese are supported; auto follows the question language or explicit language request. At most2generation calls per answer; retrieval is separate. Semantic checking and retrieval relevance remain model-dependent and cannot guarantee zero hallucination.",
+  "voice": {
+    "transcriptionModel": "gpt-transcribe",
+    "speechModel": "gpt-4o-mini-tts",
+    "speechModelShutdown": "2027-01-06",
+    "migration": "Replace HTTP speech integration before shutdown. gpt-realtime-2.1-mini is not a drop-in /audio/speech model.",
+    "disclosure": "Spoken voice is AI-generated"
+  },
+  "references": [
+    "https://developers.openai.com/api/docs/guides/retrieval",
+    "https://developers.openai.com/api/reference/resources/vector_stores/methods/search",
+    "https://developers.openai.com/api/docs/guides/structured-outputs",
+    "https://developers.openai.com/api/docs/guides/speech-to-text",
+    "https://developers.openai.com/api/docs/guides/text-to-speech"
+  ],
+  "presentationRuntime": "Local Poppler pdfinfo/pdftoppm required. Text via optional pdftotext or PYTHON_BIN+pypdf; empty pages use OpenAI visible-text OCR. PPTX requires configured Windows PowerPoint; refuses existing PowerPoint process. Remote hosting conversion remains unverified.",
+  "scriptPersistence": "Newest existing legacy cache per slide/language adopted once. Fixed canonical generated script retained permanently; manual version takes precedence. Support docs affect Q&A only. Saving never calls LLM or validates user-provided narration as source facts. Manual text and literal citation-like markers read verbatim.",
+  "questionPolicy": "Automatic questions only on saved selectedslides; unconfigureddefaultlastslide. Manualquestion entry remains available. Sharedsettings savedindependently of scripts/language/session and removedwithdeck.",
+  "animation": "Detect actual PPTXtiming/transitions in presentationorder. NativePowerPointrendered MP4 clips required; PDFremainsstatic. Browsermutesvideo and startswithactualnarrationonplay; auto-advancewaitsboth speechandvideo. ExistingWindowsPowerPointrefused; unsupported effects/conversionfailures keepstaticpreview with clearstatus. No CSSapproximation counted as nativeanimation.",
+  "embeddedVideo": {
+    "slides": {
+      "containsVideo": "boolean",
+      "videoOnly": "boolean; original PPTX has no non-video static text",
+      "videoStatus": "none|pending|ready|failed",
+      "videoUrl": "private same-origin URL|null",
+      "videoDuration": "number|null",
+      "videoError": "string|null"
+    },
+    "sequence": "Saved static narration first; then native video with audio; await ended. Video failure blocks advancement. Ordinary animations remain parallel/muted.",
+    "scriptCache": "Only generated video-page scripts use static-video-v1 namespace. Existing manual scripts and ordinary/PDF scripts stay intact. Never adopt old generated video transcripts.",
+    "generation": "Original PPTX static shape text only; no poster/OCR/frame/caption/audio inspection. Video-only generated script is persisted empty without provider calls.",
+    "emptyPlayback": {
+      "message": null,
+      "cached": true,
+      "noSpeech": true
+    },
+    "nonemptyPlayback": "Current visitor persisted message; cached:true,noSpeech:false",
+    "saveEmpty": "Allowed only actual video-only pages; manual words preserved verbatim."
+  }
+}

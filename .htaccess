@@ -1,0 +1,4 @@
+# Defense in depth. Configure the virtual host DocumentRoot to public/.
+# Never expose backend, configuration, database dumps or local storage.
+Require all denied
+Options -Indexes
